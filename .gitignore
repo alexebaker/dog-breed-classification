@@ -4,6 +4,9 @@
 *.npy
 *.json
 *.png
+*.jpg
+train/
+test/
 
 
 # General
