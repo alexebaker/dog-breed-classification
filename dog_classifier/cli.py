@@ -1,9 +1,9 @@
 from __future__ import print_function
 from __future__ import unicode_literals
-from __future__ import division
 
 
 import argparse
+import dog_classifier as dc
 
 
 def parse_args():
@@ -19,15 +19,15 @@ def parse_args():
 
     # Add arguments to the parser
     parser.add_argument(
-        '--training-data',
+        '--train-data',
         type=str,
-        default=data.genre_dir,
+        default=dc.train_zip,
         help='Path to the training data folder.')
 
     parser.add_argument(
-        '--validation-data',
+        '--test-data',
         type=str,
-        default=data.validation_dir,
+        default=dc.test_zip,
         help='Path to the validation data folder.')
 
     parser.add_argument(

@@ -19,6 +19,8 @@ def main():
     cli_args = cli.parse_args()
 
     # initialize data
+    train_data, labels = data.get_train_data(train_zip=cli_args['train_data'])
+    test_data, mapping = data.get_test_data(test_zip=cli_args['test_data'])
     return
 
 
