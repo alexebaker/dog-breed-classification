@@ -5,6 +5,7 @@
 *.json
 *.png
 *.jpg
+*.gz
 train/
 test/
 
