@@ -4,16 +4,15 @@ from __future__ import division
 
 import sys
 import itertools
+import math
 import numpy as np
+import tensorflow as tf
+import data as dd
 
 from sklearn.model_selection import train_test_split, cross_validate
 from sklearn.metrics import confusion_matrix
 
-import tensorflow as tf
-import tensorflowvisu
-import math
-#from tensorflow.examples.tutorials.mnist import input_data as mnist_data
-print("Tensorflow version " + tf.__version__)
+
 tf.set_random_seed(0.0)
 
 # input X: 28x28 grayscale images, the first dimension (None) will index the images in the mini-batch
@@ -57,17 +56,17 @@ L = 48  # second convolutional layer output depth
 M = 64  # third convolutional layer
 N = 200  # fully connected layer
 
-W1 = tf.Variable(tf.truncated_normal([6, 6, 1, K], stddev=0.1))  # 6x6 patch, 1 input channel, K output channels
+W1 = tf.Variable(tf.truncated_normal([6, 6, 3, K], stddev=0.1))  # 6x6 patch, 1 input channel, K output channels
 B1 = tf.Variable(tf.constant(0.1, tf.float32, [K]))
 W2 = tf.Variable(tf.truncated_normal([5, 5, K, L], stddev=0.1))
 B2 = tf.Variable(tf.constant(0.1, tf.float32, [L]))
 W3 = tf.Variable(tf.truncated_normal([4, 4, L, M], stddev=0.1))
 B3 = tf.Variable(tf.constant(0.1, tf.float32, [M]))
 
-W4 = tf.Variable(tf.truncated_normal([7 * 7 * M, N], stddev=0.1))
+W4 = tf.Variable(tf.truncated_normal([40000, N], stddev=0.1))
 B4 = tf.Variable(tf.constant(0.1, tf.float32, [N]))
-W5 = tf.Variable(tf.truncated_normal([N, 10], stddev=0.1))
-B5 = tf.Variable(tf.constant(0.1, tf.float32, [10]))
+W5 = tf.Variable(tf.truncated_normal([N, 120], stddev=0.1))
+B5 = tf.Variable(tf.constant(0.1, tf.float32, [120]))
 
 # The model
 # batch norm scaling is not useful with relus
@@ -89,7 +88,7 @@ Y3r = tf.nn.relu(Y3bn)
 Y3 = tf.nn.dropout(Y3r, pkeep_conv, compatible_convolutional_noise_shape(Y3r))
 
 # reshape the output from the third convolution for the fully connected layer
-YY = tf.reshape(Y3, shape=[-1, 7 * 7 * M])
+YY = tf.reshape(Y3, shape=[-1, 40000])
 
 Y4l = tf.matmul(YY, W4)
 Y4bn, update_ema4 = batchnorm(Y4l, tst, iter, B4)
@@ -121,7 +120,9 @@ sess.run(init)
 def training_step(i, update_test_data, update_train_data):
 
     # training on batches of 100 images with 100 labels
-    batch_X, batch_Y = mnist.train.next_batch(100)
+    batch_X, batch_Y = dd.get_train_data()
+    batch_X = batch_X[i*100:(i+1)*100, :, :, :]
+    batch_Y = batch_Y[i*100:(i+1)*100, :]
 
     # learning rate decay
     max_learning_rate = 0.02
@@ -133,7 +134,7 @@ def training_step(i, update_test_data, update_train_data):
     sess.run(train_step, {X: batch_X, Y_: batch_Y, lr: learning_rate, tst: False, pkeep: 0.75, pkeep_conv: 1.0})
     sess.run(update_ema, {X: batch_X, Y_: batch_Y, tst: False, iter: i, pkeep: 1.0, pkeep_conv: 1.0})
 
-for i in range(10000+1): training_step(i, i % 100 == 0, i % 20 == 0)
+for i in range(3): training_step(i, i % 100 == 0, i % 20 == 0)
 
 
 def train_data(method, data, target):

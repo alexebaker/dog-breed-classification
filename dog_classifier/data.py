@@ -9,13 +9,10 @@ import dog_classifier as dc
 
 from zipfile import ZipFile
 
-from scipy.sparse import csr_matrix
-
 from skimage.io import imread
 from skimage.transform import resize
 
 from sklearn.preprocessing import Normalizer
-
 
 
 max_img_height = 2562
@@ -26,6 +23,7 @@ min_img_width = 97
 img_height = 100
 img_width = 100
 n_channels = 3
+n_breeds = 120
 
 breed_ids = {
     'affenpinscher': 1,
@@ -179,13 +177,13 @@ def get_train_data(train_zip=dc.train_zip,
         train_data = np.zeros(
             (n_images, img_height, img_width, n_channels),
             dtype=np.float64)
-        labels = np.zeros((n_images,), dtype=np.int16)
+        labels = np.zeros((n_images, n_breeds), dtype=np.int16)
         for idx, image in enumerate(images):
             imf = zf.open(image)
             file_id = os.path.splitext(os.path.basename(image))[0]
             img = resize(imread(imf), (img_height, img_width), mode='reflect')
             train_data[idx, :, :, :] = img
-            labels[idx] = _breed_2_id(label_mapping[file_id])
+            labels[idx, _breed_2_id(label_mapping[file_id])-1] = 1
         np.save(train_npy, train_data)
         np.save(labels_npy, labels)
     return train_data, labels
