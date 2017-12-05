@@ -10,10 +10,10 @@ import numpy as np
 import tensorflow as tf
 
 # Global constants describing the dog breed data set.
-IMAGE_SIZE = cifar10_input.IMAGE_SIZE
-NUM_CLASSES = cifar10_input.NUM_CLASSES
-NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN = cifar10_input.NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN
-NUM_EXAMPLES_PER_EPOCH_FOR_EVAL = cifar10_input.NUM_EXAMPLES_PER_EPOCH_FOR_EVAL
+IMAGE_SIZE = 24
+NUM_CLASSES = 120
+NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN = 10000
+NUM_EXAMPLES_PER_EPOCH_FOR_EVAL = 1000
 
 # Constants describing the training process.
 MOVING_AVERAGE_DECAY = 0.9999     # The decay to use for the moving average.
@@ -49,7 +49,8 @@ def _variable_on_cpu(name, shape, initializer):
     Variable Tensor
   """
   with tf.device('/cpu:0'):
-    dtype = tf.float16 if FLAGS.use_fp16 else tf.float32
+    #dtype = tf.float16 if FLAGS.use_fp16 else tf.float32
+    dtype = tf.float32
     var = tf.get_variable(name, shape, initializer=initializer, dtype=dtype)
   return var
 
@@ -69,7 +70,8 @@ def _variable_with_weight_decay(name, shape, stddev, wd):
   Returns:
     Variable Tensor
   """
-  dtype = tf.float16 if FLAGS.use_fp16 else tf.float32
+  #dtype = tf.float16 if FLAGS.use_fp16 else tf.float32
+  dtype = tf.float32
   var = _variable_on_cpu(
       name,
       shape,
@@ -93,9 +95,10 @@ def inputs(eval_data):
     ValueError: If no data_dir
   """
   images, labels = dd.get_train_data()
+  """
   if FLAGS.use_fp16:
     images = tf.cast(images, tf.float16)
-    labels = tf.cast(labels, tf.float16)
+    labels = tf.cast(labels, tf.float16)"""
   return images, labels
 
 def inference(images):
@@ -153,7 +156,8 @@ def inference(images):
   # local3
   with tf.variable_scope('local3') as scope:
     # Move everything into depth so we can perform a single matrix multiply.
-    reshape = tf.reshape(pool2, [FLAGS.batch_size, -1])
+    #reshape = tf.reshape(pool2, [FLAGS.batch_size, -1])
+    reshape = tf.reshape(pool2, [128, -1])
     dim = reshape.get_shape()[1].value
     weights = _variable_with_weight_decay('weights', shape=[dim, 384],
                                           stddev=0.04, wd=0.004)
@@ -249,7 +253,8 @@ def train(total_loss, global_step):
     train_op: op for training.
   """
   # Variables that affect learning rate.
-  num_batches_per_epoch = NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN / FLAGS.batch_size
+  #num_batches_per_epoch = NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN / FLAGS.batch_size
+  num_batches_per_epoch = NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN / 128
   decay_steps = int(num_batches_per_epoch * NUM_EPOCHS_PER_DECAY)
 
   # Decay the learning rate exponentially based on the number of steps.
@@ -325,14 +330,17 @@ def trainer():
         return tf.train.SessionRunArgs(loss)  # Asks for loss value.
 
       def after_run(self, run_context, run_values):
-        if self._step % FLAGS.log_frequency == 0:
+        #if self._step % FLAGS.log_frequency == 0:
+        if self._step % 10 == 0:
           current_time = time.time()
           duration = current_time - self._start_time
           self._start_time = current_time
 
           loss_value = run_values.results
-          examples_per_sec = FLAGS.log_frequency * FLAGS.batch_size / duration
-          sec_per_batch = float(duration / FLAGS.log_frequency)
+          #examples_per_sec = FLAGS.log_frequency * FLAGS.batch_size / duration
+          examples_per_sec = 10 * 128 / duration
+          #sec_per_batch = float(duration / FLAGS.log_frequency)
+          sec_per_batch = float(duration / 10)
 
           format_str = ('%s: step %d, loss = %.2f (%.1f examples/sec; %.3f '
                         'sec/batch)')
@@ -340,12 +348,15 @@ def trainer():
                                examples_per_sec, sec_per_batch))
 
     with tf.train.MonitoredTrainingSession(
-        checkpoint_dir=FLAGS.train_dir,
-        hooks=[tf.train.StopAtStepHook(last_step=FLAGS.max_steps),
+        #checkpoint_dir=FLAGS.train_dir,
+        #hooks=[tf.train.StopAtStepHook(last_step=FLAGS.max_steps),
+        checkpoint_dir='/tmp/dog_breed_train',
+        hooks=[tf.train.StopAtStepHook(last_step=1000000),
                tf.train.NanTensorHook(loss),
                _LoggerHook()],
         config=tf.ConfigProto(
-            log_device_placement=FLAGS.log_device_placement)) as mon_sess:
+            log_device_placement=False)) as mon_sess:
+            #log_device_placement=FLAGS.log_device_placement)) as mon_sess:
       while not mon_sess.should_stop():
         mon_sess.run(train_op)
 
@@ -359,7 +370,8 @@ def eval_once(saver, summary_writer, top_k_op, summary_op):
     summary_op: Summary op.
   """
   with tf.Session() as sess:
-    ckpt = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
+    #ckpt = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
+    ckpt = tf.train.get_checkpoint_state('/tmp/dog_breed_eval')
     if ckpt and ckpt.model_checkpoint_path:
       # Restores from checkpoint
       saver.restore(sess, ckpt.model_checkpoint_path)
@@ -379,9 +391,11 @@ def eval_once(saver, summary_writer, top_k_op, summary_op):
         threads.extend(qr.create_threads(sess, coord=coord, daemon=True,
                                          start=True))
 
-      num_iter = int(math.ceil(FLAGS.num_examples / FLAGS.batch_size))
+      #num_iter = int(math.ceil(FLAGS.num_examples / FLAGS.batch_size))
+      num_iter = int(math.ceil(10000 / 128))
       true_count = 0  # Counts the number of correct predictions.
-      total_sample_count = num_iter * FLAGS.batch_size
+      #total_sample_count = num_iter * FLAGS.batch_size
+      total_sample_count = num_iter * 128
       step = 0
       while step < num_iter and not coord.should_stop():
         predictions = sess.run([top_k_op])
@@ -407,29 +421,32 @@ def evaluate():
   """Eval CIFAR-10 for a number of steps."""
   with tf.Graph().as_default() as g:
     # Get images and labels for CIFAR-10.
-    eval_data = FLAGS.eval_data == 'test'
-    images, labels = cifar10.inputs(eval_data=eval_data)
+    #eval_data = FLAGS.eval_data == 'test'
+    eval_data = True
+    images, labels = inputs(eval_data=eval_data)
 
     # Build a Graph that computes the logits predictions from the
     # inference model.
-    logits = cifar10.inference(images)
+    logits = inference(images)
 
     # Calculate predictions.
     top_k_op = tf.nn.in_top_k(logits, labels, 1)
 
     # Restore the moving average version of the learned variables for eval.
     variable_averages = tf.train.ExponentialMovingAverage(
-        cifar10.MOVING_AVERAGE_DECAY)
+        MOVING_AVERAGE_DECAY)
     variables_to_restore = variable_averages.variables_to_restore()
     saver = tf.train.Saver(variables_to_restore)
 
     # Build the summary operation based on the TF collection of Summaries.
     summary_op = tf.summary.merge_all()
 
-    summary_writer = tf.summary.FileWriter(FLAGS.eval_dir, g)
+    #summary_writer = tf.summary.FileWriter(FLAGS.eval_dir, g)
+    summary_writer = tf.summary.FileWriter('/tmp/dog_breed_eval', g)
 
     while True:
       eval_once(saver, summary_writer, top_k_op, summary_op)
-      if FLAGS.run_once:
-        break
-      time.sleep(FLAGS.eval_interval_secs)
+      """if FLAGS.run_once:
+        break"""
+      #time.sleep(FLAGS.eval_interval_secs)
+      time.sleep(300)
