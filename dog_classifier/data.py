@@ -1,29 +1,41 @@
-from __future__ import print_function
-from __future__ import unicode_literals
+# Copyright 2015 The TensorFlow Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
+"""Routine for decoding the CIFAR-10 binary file format."""
+
+from __future__ import absolute_import
 from __future__ import division
+from __future__ import print_function
 
 import os
-import json
-import numpy as np
-import dog_classifier as dc
+import random
+import tensorflow as tf
 
-from zipfile import ZipFile
-
-from skimage.io import imread
-from skimage.transform import resize
-
-from sklearn.preprocessing import Normalizer
+from dog_classifier import ARGS
 
 
-max_img_height = 2562
-min_img_height = 102
-max_img_width = 3264
-min_img_width = 97
+# Process images of this size. Note that this differs from the original CIFAR
+# image size of 32 x 32. If one alters this number, then the entire model
+# architecture will change and any model would need to be retrained.
+IMAGE_SIZE = 24
 
-img_height = 100
-img_width = 100
-n_channels = 3
-n_breeds = 120
+# Global constants describing the CIFAR-10 data set.
+NUM_CLASSES = 20
+NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN = 50000
+NUM_EXAMPLES_PER_EPOCH_FOR_EVAL = 10000
+
 
 breed_ids = {
     'affenpinscher': 1,
@@ -149,158 +161,123 @@ breed_ids = {
 }
 
 
-def get_train_data(train_zip=dc.train_zip,
-                   train_npy=dc.train_npy,
-                   labels_npy=dc.labels_npy):
-    """Reads the training data files.
+def read_image(filename_queue):
+    """Reads and parses examples from CIFAR10 data files.
 
-    :type folder: str
-    :param: path to the folder of music files
+    Recommendation: if you want N-way read parallelism, call this function
+    N times.  This will give you N independent Readers reading different
+    files & positions within those files, which will give better mixing of
+    examples.
 
-    :type data_file: str
-    :param: path to a npy file of pre-processed audio data
+    Args:
+        filename_queue: A queue of strings with the filenames to read from.
 
-    :type label_file: str
-    :param: path to a npy file that has the labels of the data_file
-
-    :rtype: (np.array, np.array)
-    :returns: return np.array of audio_data and np.array of labels for the audio data
+    Returns:
+        An object representing a single example, with the following fields:
+        height: number of rows in the result (32)
+        width: number of columns in the result (32)
+        depth: number of color channels in the result (3)
+        key: a scalar string Tensor describing the filename & record number
+            for this example.
+        label: an int32 Tensor with the label in the range 0..9.
+        uint8image: a [height, width, depth] uint8 Tensor with the image data
     """
-    if os.path.exists(train_npy) and os.path.exists(labels_npy):
-        train_data = np.load(train_npy)
-        labels = np.load(labels_npy)
-    else:
-        zf = ZipFile(train_zip)
-        images = [img for img in zf.namelist() if img.endswith('.jpg')]
-        label_mapping = get_label_mapping()
-        n_images = len(images)
-        train_data = np.zeros(
-            (n_images, img_height, img_width, n_channels),
-            dtype=np.float64)
-        labels = np.zeros((n_images, n_breeds), dtype=np.int16)
-        for idx, image in enumerate(images):
-            imf = zf.open(image)
-            file_id = os.path.splitext(os.path.basename(image))[0]
-            img = resize(imread(imf), (img_height, img_width), mode='reflect')
-            train_data[idx, :, :, :] = img
-            labels[idx, _breed_2_id(label_mapping[file_id])-1] = 1
-        np.save(train_npy, train_data)
-        np.save(labels_npy, labels)
-    return train_data, labels
+    reader = tf.WholeFileReader()
+    filename, f = reader.read(filename_queue)
+
+    image = tf.image.decode_jpeg(f)
+    image = tf.image.resize_images(image,
+                                   tf.constant([IMAGE_SIZE, IMAGE_SIZE],
+                                               tf.int32))
+    image = tf.image.per_image_standardization(image)
+
+    label = tf.py_func(get_label, [filename], tf.int64)
+
+    return image, label
 
 
-def get_labels(labels_npy=dc.labels_npy):
-    """Reads the label files.
+def get_label(filename):
+    file_id = os.path.splitext(os.path.basename(str(filename)))[0]
+    label_mapping = get_label_mapping()
+    return _breed_2_id(label_mapping[file_id])
 
-    :type label_file: str
-    :param: path to a npy file that has the labels of the data_file
 
-    :rtype: np.array
-    :returns: np.array of labels for the audio data (n_samples,)
+def get_images(eval_data, data_dir, batch_size):
+    """Construct input for CIFAR evaluation using the Reader ops.
+
+    Args:
+        eval_data: bool, indicating if one should use the train or eval data set.
+        data_dir: Path to the CIFAR-10 data directory.
+        batch_size: Number of images per batch.
+
+    Returns:
+        images: Images. 4D tensor of [batch_size, IMAGE_SIZE, IMAGE_SIZE, 3] size.
+        labels: Labels. 1D tensor of [batch_size] size.
     """
-    if os.path.exists(labels_npy):
-        labels = np.load(labels_npy)
+    if not eval_data:
+        filenames, _ = get_filenames(data_dir)
+        num_examples_per_epoch = NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN
     else:
-        _, labels = get_train_data()
-    return labels
+        _, filenames = get_filenames(data_dir)
+        num_examples_per_epoch = NUM_EXAMPLES_PER_EPOCH_FOR_EVAL
+
+    for f in filenames:
+        if not tf.gfile.Exists(f):
+            raise ValueError('Failed to find file: ' + f)
+
+    # Create a queue that produces the filenames to read.
+    filename_queue = tf.train.string_input_producer(filenames)
+
+    # Read examples from files in the filename queue.
+    image, label = read_image(filename_queue)
+
+    # Set the shapes of tensors.
+    image.set_shape([IMAGE_SIZE, IMAGE_SIZE, 3])
+    label.set_shape([1])
+    tf.Print(label, [label])
+
+    # Ensure that the random shuffling has good mixing properties.
+    min_fraction_of_examples_in_queue = 0.4
+    min_queue_examples = int(num_examples_per_epoch *
+                             min_fraction_of_examples_in_queue)
+
+    images, label_batch = tf.train.batch(
+        [image, label],
+        batch_size=batch_size,
+        num_threads=4,
+        capacity=min_queue_examples + 3 * batch_size)
+
+    # Display the training images in the visualizer.
+    tf.summary.image('images', images)
+
+    return images, tf.reshape(label_batch, [batch_size])
 
 
-def get_label_mapping(labels_zip=dc.label_zip):
-    zf = ZipFile(labels_zip, 'r')
-    csv = zf.open('labels.csv')
+def get_label_mapping(data_dir=ARGS.data_dir):
     label_mapping = {}
-    for line in csv.readlines()[1:]:
-        file_id, breed = line.strip().split(',')
-        label_mapping[file_id] = breed
+    label_file = os.path.join(data_dir, 'labels.csv')
+    with open(label_file, 'r') as f:
+        for line in f.readlines()[1:]:
+            file_id, breed = line.strip().split(',')
+            label_mapping[file_id] = breed
     return label_mapping
 
 
-def get_test_data(test_zip=dc.test_zip,
-                  test_npy=dc.test_npy,
-                  mapping_json=dc.mapping_json):
-    """Reads the validation music files.
+def get_filenames(data_dir):
+    filenames = []
+    train_dir = os.path.join(data_dir, 'train')
+    for root, dirs, files in os.walk(train_dir):
+        for f in files:
+            if f.endswith('.jpg'):
+                filenames.append(os.path.join(root, f))
 
-    :type folder: str
-    :param: path to the folder of validation music files
+    random.seed(33)
+    random.shuffle(filenames)
 
-    :type data_file: str
-    :param: path to a npy file of pre-processed validation data
-
-    :type mapping_file: str
-    :param: path to a json file that has a mapping of which filename is which row in the validation data.
-
-    :rtype: (np.array, dict)
-    :returns: return np.array of audio_data and dict of the mapping
-    """
-    if os.path.exists(test_npy) and os.path.exists(mapping_json):
-        test_data = np.load(test_npy)
-        with open(mapping_json, 'r') as f:
-            test_mapping = json.load(f)
-    else:
-        zf = ZipFile(test_zip)
-        images = [img for img in zf.namelist() if img.endswith('.jpg')]
-        n_images = len(images)
-        test_mapping = {}
-        test_data = np.zeros(
-            (n_images, img_height, img_width, n_channels),
-            dtype=np.float64)
-        for idx, image in enumerate(images):
-            imf = zf.open(image)
-            file_id = os.path.splitext(os.path.basename(image))[0]
-            img = resize(imread(imf), (img_height, img_width), mode='reflect')
-            test_data[idx, :, :, :] = img
-            test_mapping[str(idx)] = file_id
-        np.save(test_npy, test_data)
-        with open(mapping_json, 'w') as f:
-            json.dump(test_mapping, f)
-    return test_data, test_mapping
-
-
-def get_test_mapping(mapping_json=dc.mapping_json):
-    """Reads the mapping json file.
-
-    :type mapping_file: str
-    :param: path to a json file that has a mapping of which filename is which row in the validation data.
-
-    :rtype: dict
-    :returns: dict of the mapping
-    """
-    if os.path.exists(mapping_json):
-        with open(mapping_json, 'r') as f:
-            test_mapping = json.load(f)
-    else:
-        _, test_mapping = get_test_data()
-    return test_mapping
-
-
-def normalize_data(data):
-    """Normalizes the given data.
-
-    :type data: np.array
-    :param: data to normalize (n_smaples, n_features)
-
-    :rtype: np.array
-    :returns: np.array of normalized data (n_samples, n_features)
-    """
-    norm = Normalizer()
-    return norm.fit_transform(data)
-
-
-def save_classification(classification, classification_csv, test_mapping):
-    """Saves the classification from the classification algorithm.
-
-    :type classification: list
-    :param classification: The classification output from the classifier.
-
-    :type classification_file: File Object
-    :param classification_file: File to write the classification to.
-    """
-    with open(classification_csv, 'w') as f:
-        print("id,class", file=f)
-        for idx, breed in enumerate(classification):
-            print("%s,%s" % (test_mapping[str(idx)], str(breed)),
-                  file=f)
-    return
+    split_idx = int(0.8 * len(filenames))
+    train_filenames = filenames[:split_idx]
+    test_filenames = filenames[split_idx:]
+    return train_filenames, test_filenames
 
 
 def _breed_2_id(breed):

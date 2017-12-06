@@ -18,27 +18,28 @@ def parse_args():
         description='Classifies the testing data using the training data.')
 
     # Add arguments to the parser
-    parser.add_argument(
-        '--train-data',
-        type=str,
-        default=dc.train_zip,
-        help='Path to the training data folder.')
+    parser.add_argument('--batch-size', type=int, default=128,
+                        help='Number of images to process in a batch.')
 
-    parser.add_argument(
-        '--test-data',
-        type=str,
-        default=dc.test_zip,
-        help='Path to the validation data folder.')
+    parser.add_argument('--data-dir', type=str, default=dc.DATA_DIR,
+                        help='Path to the CIFAR-10 data directory.')
 
-    parser.add_argument(
-        '--cross-validate',
-        type=int,
-        default=10,
-        help='Perform n fold cross validation.')
+    parser.add_argument('--eval-interval-secs', type=int, default=60*5,
+                        help='How often to run the eval.')
 
-    parser.add_argument(
-        '--confusion-matrix',
-        action='store_true',
-        help='Calculate the confusion matrix for the given methods.')
+    parser.add_argument('--num-examples', type=int, default=10000,
+                        help='Number of examples to run.')
 
-    return vars(parser.parse_args())
+    parser.add_argument('--run-once', type=bool, default=False,
+                        help='Whether to run eval only once.')
+
+    parser.add_argument('--max-steps', type=int, default=1000000,
+                        help='Number of batches to run.')
+
+    parser.add_argument('--log-device-placement', type=bool, default=False,
+                        help='Whether to log device placement.')
+
+    parser.add_argument('--log-frequency', type=int, default=10,
+                        help='How often to log results to the console.')
+
+    return parser.parse_args()
