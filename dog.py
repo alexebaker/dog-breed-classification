@@ -8,8 +8,8 @@ from dog_classifier import train, test
 
 def main():
     """Main entry point."""
-    tf.app.run(main=train.start_training)
-    #tf.app.run(main=test.start_eval)
+    #tf.app.run(main=train.start_training)
+    tf.app.run(main=test.start_eval)
     return
 
 

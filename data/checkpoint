@@ -1,0 +1,3 @@
+model_checkpoint_path: "/Users/aebaker/School/unm/repos/dog-breed-classification/data/model.ckpt-303"
+all_model_checkpoint_paths: "/Users/aebaker/School/unm/repos/dog-breed-classification/data/model.ckpt-1"
+all_model_checkpoint_paths: "/Users/aebaker/School/unm/repos/dog-breed-classification/data/model.ckpt-303"

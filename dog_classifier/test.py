@@ -64,7 +64,7 @@ def eval_once(saver, summary_writer, top_k_op, summary_op):
             global_step = ckpt.model_checkpoint_path.split('/')[-1].split('-')[-1]
         else:
             print('No checkpoint file found')
-        return
+            return
 
         # Start the queue runners.
         coord = tf.train.Coordinator()
@@ -93,8 +93,8 @@ def eval_once(saver, summary_writer, top_k_op, summary_op):
             summary_writer.add_summary(summary, global_step)
         except Exception as e:  # pylint: disable=broad-except
             coord.request_stop(e)
-            coord.request_stop()
-            coord.join(threads, stop_grace_period_secs=10)
+        coord.request_stop()
+        coord.join(threads, stop_grace_period_secs=10)
     return
 
 

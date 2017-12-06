@@ -31,6 +31,7 @@ from dog_classifier import ARGS
 # image size of 32 x 32. If one alters this number, then the entire model
 # architecture will change and any model would need to be retrained.
 IMAGE_SIZE = 32
+CROP_SIZE = 24
 
 # Global constants describing the CIFAR-10 data set.
 NUM_CLASSES = 120
@@ -190,7 +191,6 @@ def read_image(filename_queue):
     image = tf.image.resize_images(image,
                                    tf.constant([IMAGE_SIZE, IMAGE_SIZE],
                                                tf.int32))
-    image = tf.image.per_image_standardization(image)
 
     label = tf.py_func(get_label, [filename], tf.int64)
 
@@ -231,22 +231,25 @@ def get_images(eval_data, data_dir, batch_size):
 
     # Read examples from files in the filename queue.
     image, label = read_image(filename_queue)
+    image = tf.random_crop(image, [CROP_SIZE, CROP_SIZE, 3])
+    image = tf.image.random_flip_left_right(image)
+    image = tf.image.per_image_standardization(image)
 
     # Set the shapes of tensors.
-    image.set_shape([IMAGE_SIZE, IMAGE_SIZE, 3])
+    image.set_shape([CROP_SIZE, CROP_SIZE, 3])
     label.set_shape([1])
-    tf.Print(label, [label], message='Label: ')
 
     # Ensure that the random shuffling has good mixing properties.
     min_fraction_of_examples_in_queue = 0.4
     min_queue_examples = int(num_examples_per_epoch *
                              min_fraction_of_examples_in_queue)
 
-    images, label_batch = tf.train.batch(
+    images, label_batch = tf.train.shuffle_batch(
         [image, label],
         batch_size=batch_size,
         num_threads=4,
-        capacity=min_queue_examples + 3 * batch_size)
+        capacity=min_queue_examples + 3 * batch_size,
+        min_after_dequeue=min_queue_examples)
 
     # Display the training images in the visualizer.
     tf.summary.image('images', images)

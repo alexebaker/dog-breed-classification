@@ -40,7 +40,7 @@ import tensorflow as tf
 from dog_classifier import ARGS, data
 
 # Global constants describing the CIFAR-10 data set.
-IMAGE_SIZE = data.IMAGE_SIZE
+IMAGE_SIZE = data.CROP_SIZE
 NUM_CLASSES = data.NUM_CLASSES
 NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN = data.NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN
 NUM_EXAMPLES_PER_EPOCH_FOR_EVAL = data.NUM_EXAMPLES_PER_EPOCH_FOR_EVAL

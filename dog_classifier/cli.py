@@ -30,7 +30,7 @@ def parse_args():
     parser.add_argument('--num-examples', type=int, default=10000,
                         help='Number of examples to run.')
 
-    parser.add_argument('--run-once', type=bool, default=False,
+    parser.add_argument('--run-once', type=bool, default=True,
                         help='Whether to run eval only once.')
 
     parser.add_argument('--max-steps', type=int, default=1000000,
