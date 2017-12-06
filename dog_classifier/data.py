@@ -21,6 +21,7 @@ from __future__ import print_function
 
 import os
 import random
+import numpy as np
 import tensorflow as tf
 
 from dog_classifier import ARGS
@@ -29,10 +30,10 @@ from dog_classifier import ARGS
 # Process images of this size. Note that this differs from the original CIFAR
 # image size of 32 x 32. If one alters this number, then the entire model
 # architecture will change and any model would need to be retrained.
-IMAGE_SIZE = 24
+IMAGE_SIZE = 32
 
 # Global constants describing the CIFAR-10 data set.
-NUM_CLASSES = 20
+NUM_CLASSES = 120
 NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN = 50000
 NUM_EXAMPLES_PER_EPOCH_FOR_EVAL = 10000
 
@@ -199,7 +200,7 @@ def read_image(filename_queue):
 def get_label(filename):
     file_id = os.path.splitext(os.path.basename(str(filename)))[0]
     label_mapping = get_label_mapping()
-    return _breed_2_id(label_mapping[file_id])
+    return np.array([_breed_2_id(label_mapping[file_id])-1])
 
 
 def get_images(eval_data, data_dir, batch_size):
@@ -234,7 +235,7 @@ def get_images(eval_data, data_dir, batch_size):
     # Set the shapes of tensors.
     image.set_shape([IMAGE_SIZE, IMAGE_SIZE, 3])
     label.set_shape([1])
-    tf.Print(label, [label])
+    tf.Print(label, [label], message='Label: ')
 
     # Ensure that the random shuffling has good mixing properties.
     min_fraction_of_examples_in_queue = 0.4
