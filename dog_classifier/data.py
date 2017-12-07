@@ -163,7 +163,7 @@ breed_ids = {
 }
 
 
-def read_image(filename_queue):
+def read_image(filename_queue, eval_data=False):
     """Reads and parses examples from CIFAR10 data files.
 
     Recommendation: if you want N-way read parallelism, call this function
@@ -188,9 +188,15 @@ def read_image(filename_queue):
     filename, f = reader.read(filename_queue)
 
     image = tf.image.decode_jpeg(f)
-    image = tf.image.resize_images(image,
-                                   tf.constant([IMAGE_SIZE, IMAGE_SIZE],
-                                               tf.int32))
+
+    if not eval_data:
+        image = tf.image.resize_images(
+            image,
+            tf.constant([IMAGE_SIZE, IMAGE_SIZE], tf.int32))
+    else:
+        image = tf.image.resize_images(
+            image,
+            tf.constant([CROP_SIZE, CROP_SIZE], tf.int32))
 
     label = tf.py_func(get_label, [filename], tf.int64)
 
@@ -230,9 +236,25 @@ def get_images(eval_data, data_dir, batch_size):
     filename_queue = tf.train.string_input_producer(filenames)
 
     # Read examples from files in the filename queue.
-    image, label = read_image(filename_queue)
-    image = tf.random_crop(image, [CROP_SIZE, CROP_SIZE, 3])
-    image = tf.image.random_flip_left_right(image)
+    image, label = read_image(filename_queue, eval_data=eval_data)
+
+    if not eval_data:
+        if random.random() < 0.8:
+            image = tf.random_crop(image, [CROP_SIZE, CROP_SIZE, 3])
+            image = tf.image.random_flip_left_right(image)
+            image = tf.image.random_flip_up_down(image)
+            if random.random() < 0.5:
+                tf.image.random_brightness(image, max_delta=63)
+                tf.image.random_contrast(image, lower=0.2, upper=1.8)
+            else:
+                tf.image.random_contrast(image, lower=0.2, upper=1.8)
+                tf.image.random_brightness(image, max_delta=63)
+        else:
+            image = tf.image.resize_image_with_crop_or_pad(
+                image,
+                CROP_SIZE,
+                CROP_SIZE)
+
     image = tf.image.per_image_standardization(image)
 
     # Set the shapes of tensors.
@@ -247,7 +269,7 @@ def get_images(eval_data, data_dir, batch_size):
     images, label_batch = tf.train.shuffle_batch(
         [image, label],
         batch_size=batch_size,
-        num_threads=4,
+        num_threads=16,
         capacity=min_queue_examples + 3 * batch_size,
         min_after_dequeue=min_queue_examples)
 

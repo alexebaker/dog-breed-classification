@@ -36,6 +36,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import os
 import time
 import tensorflow as tf
 
@@ -93,10 +94,10 @@ def train():
                                          examples_per_sec, sec_per_batch))
 
         with tf.train.MonitoredTrainingSession(
-                checkpoint_dir=ARGS.data_dir,
+                checkpoint_dir=os.path.join(ARGS.data_dir, 'checkpoints'),
                 hooks=[tf.train.StopAtStepHook(last_step=ARGS.max_steps),
-                        tf.train.NanTensorHook(loss),
-                        _LoggerHook()],
+                       tf.train.NanTensorHook(loss),
+                       _LoggerHook()],
                 config=tf.ConfigProto(
                     log_device_placement=ARGS.log_device_placement)
         ) as mon_sess:

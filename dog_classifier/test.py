@@ -34,6 +34,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import os
 import math
 import time
 import numpy as np
@@ -54,7 +55,8 @@ def eval_once(saver, summary_writer, top_k_op, summary_op):
         summary_op: Summary op.
     """
     with tf.Session() as sess:
-        ckpt = tf.train.get_checkpoint_state(ARGS.data_dir)
+        ckpt = tf.train.get_checkpoint_state(
+            os.path.join(ARGS.data_dir, 'checkpoints'))
         if ckpt and ckpt.model_checkpoint_path:
             # Restores from checkpoint
             saver.restore(sess, ckpt.model_checkpoint_path)
@@ -85,7 +87,7 @@ def eval_once(saver, summary_writer, top_k_op, summary_op):
 
             # Compute precision @ 1.
             precision = true_count / total_sample_count
-            print('%s: precision @ 1 = %.3f' % (datetime.now(), precision))
+            print('%s: precision @ 1 = %3.2f%%' % (datetime.now(), precision*100))
 
             summary = tf.Summary()
             summary.ParseFromString(sess.run(summary_op))
