@@ -42,4 +42,7 @@ def parse_args():
     parser.add_argument('--log-frequency', type=int, default=10,
                         help='How often to log results to the console.')
 
+    parser.add_argument('--eval', action='store_true',
+                        help='Whether to run eval.')
+
     return parser.parse_args()

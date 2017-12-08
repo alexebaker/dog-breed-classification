@@ -1,0 +1,6 @@
+model_checkpoint_path: "/home/alexebaker/dog-breed-classification/data/checkpoints/model.ckpt-38925"
+all_model_checkpoint_paths: "/home/alexebaker/dog-breed-classification/data/checkpoints/model.ckpt-37112"
+all_model_checkpoint_paths: "/home/alexebaker/dog-breed-classification/data/checkpoints/model.ckpt-37715"
+all_model_checkpoint_paths: "/home/alexebaker/dog-breed-classification/data/checkpoints/model.ckpt-38317"
+all_model_checkpoint_paths: "/home/alexebaker/dog-breed-classification/data/checkpoints/model.ckpt-38924"
+all_model_checkpoint_paths: "/home/alexebaker/dog-breed-classification/data/checkpoints/model.ckpt-38925"

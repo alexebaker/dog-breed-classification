@@ -1,15 +1,20 @@
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import os
 import tensorflow as tf
 
-from dog_classifier import train, test
+from dog_classifier import ARGS, train, test
 
 
 def main():
     """Main entry point."""
-    #tf.app.run(main=train.start_training)
-    tf.app.run(main=test.start_eval)
+
+    if not ARGS.eval:
+        tf.app.run(main=train.start_training)
+    else:
+        os.environ["CUDA_VISIBLE_DEVICES"] = ''
+        tf.app.run(main=test.start_eval)
     return
 
 
