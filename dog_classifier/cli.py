@@ -45,4 +45,7 @@ def parse_args():
     parser.add_argument('--eval', action='store_true',
                         help='Whether to run eval.')
 
+    parser.add_argument('--test', action='store_true',
+                        help='Whether to run eval.')
+
     return parser.parse_args()

@@ -10,11 +10,14 @@ from dog_classifier import ARGS, train, test
 def main():
     """Main entry point."""
 
-    if not ARGS.eval:
-        tf.app.run(main=train.start_training)
+    if not ARGS.test:
+        if not ARGS.eval:
+            tf.app.run(main=train.start_training)
+        else:
+            os.environ["CUDA_VISIBLE_DEVICES"] = ''
+            tf.app.run(main=test.start_eval)
     else:
-        os.environ["CUDA_VISIBLE_DEVICES"] = ''
-        tf.app.run(main=test.start_eval)
+        tf.app.run(main=test.start_test)
     return
 
 

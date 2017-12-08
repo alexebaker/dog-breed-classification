@@ -203,10 +203,48 @@ def read_image(filename_queue, eval_data=False):
     return image, label
 
 
+def read_test_image(filename_queue):
+    """Reads and parses examples from CIFAR10 data files.
+
+    Recommendation: if you want N-way read parallelism, call this function
+    N times.  This will give you N independent Readers reading different
+    files & positions within those files, which will give better mixing of
+    examples.
+
+    Args:
+        filename_queue: A queue of strings with the filenames to read from.
+
+    Returns:
+        An object representing a single example, with the following fields:
+        height: number of rows in the result (32)
+        width: number of columns in the result (32)
+        depth: number of color channels in the result (3)
+        key: a scalar string Tensor describing the filename & record number
+            for this example.
+        label: an int32 Tensor with the label in the range 0..9.
+        uint8image: a [height, width, depth] uint8 Tensor with the image data
+    """
+    reader = tf.WholeFileReader()
+    filename, f = reader.read(filename_queue)
+
+    image = tf.image.decode_jpeg(f)
+    image = tf.image.resize_images(
+        image,
+        tf.constant([CROP_SIZE, CROP_SIZE], tf.int32))
+
+    image_id = tf.py_func(get_file_id, [filename], tf.string)
+
+    return image, image_id
+
+
 def get_label(filename):
     file_id = os.path.splitext(os.path.basename(str(filename)))[0]
     label_mapping = get_label_mapping()
     return np.array([_breed_2_id(label_mapping[file_id])-1])
+
+
+def get_file_id(filename):
+    return np.array([os.path.splitext(os.path.basename(str(filename)))[0]])
 
 
 def get_images(eval_data, data_dir, batch_size):
@@ -279,6 +317,51 @@ def get_images(eval_data, data_dir, batch_size):
     return images, tf.reshape(label_batch, [batch_size])
 
 
+def get_test_images(data_dir, batch_size):
+    """Construct input for CIFAR evaluation using the Reader ops.
+
+    Args:
+        eval_data: bool, indicating if one should use the train or eval data set.
+        data_dir: Path to the CIFAR-10 data directory.
+        batch_size: Number of images per batch.
+
+    Returns:
+        images: Images. 4D tensor of [batch_size, IMAGE_SIZE, IMAGE_SIZE, 3] size.
+        labels: Labels. 1D tensor of [batch_size] size.
+    """
+    filenames = get_test_filenames(data_dir)
+    num_examples_per_epoch = NUM_EXAMPLES_PER_EPOCH_FOR_EVAL
+
+    for f in filenames:
+        if not tf.gfile.Exists(f):
+            raise ValueError('Failed to find file: ' + f)
+
+    # Create a queue that produces the filenames to read.
+    filename_queue = tf.train.string_input_producer(filenames,
+                                                    capacity=10357)
+
+    # Read examples from files in the filename queue.
+    image, image_id = read_test_image(filename_queue)
+    image = tf.image.per_image_standardization(image)
+
+    # Set the shapes of tensors.
+    image.set_shape([CROP_SIZE, CROP_SIZE, 3])
+    image_id.set_shape([1])
+
+    # Ensure that the random shuffling has good mixing properties.
+    min_fraction_of_examples_in_queue = 0.4
+    min_queue_examples = int(num_examples_per_epoch *
+                             min_fraction_of_examples_in_queue)
+
+    images, id_batch = tf.train.batch(
+        [image, image_id],
+        batch_size=batch_size,
+        num_threads=16,
+        capacity=10357)
+
+    return images, tf.reshape(id_batch, [batch_size])
+
+
 def get_label_mapping(data_dir=ARGS.data_dir):
     label_mapping = {}
     label_file = os.path.join(data_dir, 'labels.csv')
@@ -304,6 +387,16 @@ def get_filenames(data_dir):
     train_filenames = filenames[:split_idx]
     test_filenames = filenames[split_idx:]
     return train_filenames, test_filenames
+
+
+def get_test_filenames(data_dir):
+    filenames = []
+    train_dir = os.path.join(data_dir, 'test')
+    for root, dirs, files in os.walk(train_dir):
+        for f in files:
+            if f.endswith('.jpg'):
+                filenames.append(os.path.join(root, f))
+    return filenames
 
 
 def _breed_2_id(breed):
