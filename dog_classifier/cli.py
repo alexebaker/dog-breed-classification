@@ -18,7 +18,7 @@ def parse_args():
         description='Classifies the testing data using the training data.')
 
     # Add arguments to the parser
-    parser.add_argument('--batch-size', type=int, default=128,
+    parser.add_argument('--batch-size', type=int, default=64,
                         help='Number of images to process in a batch.')
 
     parser.add_argument('--data-dir', type=str, default=dc.DATA_DIR,
@@ -46,6 +46,9 @@ def parse_args():
                         help='Whether to run eval.')
 
     parser.add_argument('--test', action='store_true',
+                        help='Whether to run eval.')
+
+    parser.add_argument('--no-gpu', action='store_true',
                         help='Whether to run eval.')
 
     return parser.parse_args()

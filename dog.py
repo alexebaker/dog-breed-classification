@@ -10,6 +10,12 @@ from dog_classifier import ARGS, train, test
 def main():
     """Main entry point."""
 
+    if ARGS.no_gpu:
+        try:
+            os.environ["CUDA_VISIBLE_DEVICES"] = ''
+        except KeyError:
+            pass
+
     if not ARGS.test:
         if not ARGS.eval:
             tf.app.run(main=train.start_training)
