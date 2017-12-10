@@ -17,6 +17,7 @@ def main():
             os.environ["CUDA_VISIBLE_DEVICES"] = ''
             tf.app.run(main=test.start_eval)
     else:
+        ARGS.batch_size = 1
         tf.app.run(main=test.start_test)
     return
 

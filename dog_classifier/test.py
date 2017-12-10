@@ -140,12 +140,13 @@ def start_test(argv=None):
     save_to_csv(True, None, None)
     with tf.Graph().as_default() as g:
         # Get images and labels for CIFAR-10.
-        images, image_ids = data.get_test_images(ARGS.data_dir, ARGS.batch_size)
+        image, image_id = data.get_test_image(ARGS.data_dir)
 
         # Build a Graph that computes the logits predictions from the
         # inference model.
-        logits = classifier.inference(images)
-        predictions = tf.nn.softmax(logits)
+        logits = classifier.inference(image)
+        prediction = tf.nn.softmax(logits)
+        #preds, img_ids = tf.py_func(get_predictions, [images, image_ids], [tf.float32, tf.string])
 
         variable_averages = tf.train.ExponentialMovingAverage(
             classifier.MOVING_AVERAGE_DECAY)
@@ -174,11 +175,16 @@ def start_test(argv=None):
                                                     daemon=True, start=True))
 
                 num_iter = int(math.ceil(10357 / ARGS.batch_size))
+                num_images = 10357
+                tested_images = []
                 step = 0
-                while step < num_iter and not coord.should_stop():
-                    preds = sess.run([predictions])
-                    img_ids = sess.run([image_ids])
-                    save_to_csv(False, preds[0], img_ids[0])
+                while len(tested_images) < num_images and not coord.should_stop():
+                    pred, img_id = sess.run([prediction, image_id])
+                    pred = pred[0]
+                    img_id = img_id[0]
+                    if img_id not in tested_images:
+                        tested_images.append(img_id)
+                        save_to_csv(False, pred, img_id)
                     step += 1
 
             except Exception as e:  # pylint: disable=broad-except
@@ -188,13 +194,19 @@ def start_test(argv=None):
         return
 
 
-def save_to_csv(first_run, predictions, image_ids):
+#def get_predictions(images, images_ids):
+#    logits = classifier.inference(images)
+#    preds = tf.nn.softmax(logits
+#    return np.array(preds), np.array(image_ids)
+
+
+def save_to_csv(first_run, prediction, image_id):
     csv_file = os.path.join(ARGS.data_dir, 'classification.csv')
     if first_run:
         with open(csv_file, 'w') as f:
             print("id,affenpinscher,afghan_hound,african_hunting_dog,airedale,american_staffordshire_terrier,appenzeller,australian_terrier,basenji,basset,beagle,bedlington_terrier,bernese_mountain_dog,black-and-tan_coonhound,blenheim_spaniel,bloodhound,bluetick,border_collie,border_terrier,borzoi,boston_bull,bouvier_des_flandres,boxer,brabancon_griffon,briard,brittany_spaniel,bull_mastiff,cairn,cardigan,chesapeake_bay_retriever,chihuahua,chow,clumber,cocker_spaniel,collie,curly-coated_retriever,dandie_dinmont,dhole,dingo,doberman,english_foxhound,english_setter,english_springer,entlebucher,eskimo_dog,flat-coated_retriever,french_bulldog,german_shepherd,german_short-haired_pointer,giant_schnauzer,golden_retriever,gordon_setter,great_dane,great_pyrenees,greater_swiss_mountain_dog,groenendael,ibizan_hound,irish_setter,irish_terrier,irish_water_spaniel,irish_wolfhound,italian_greyhound,japanese_spaniel,keeshond,kelpie,kerry_blue_terrier,komondor,kuvasz,labrador_retriever,lakeland_terrier,leonberg,lhasa,malamute,malinois,maltese_dog,mexican_hairless,miniature_pinscher,miniature_poodle,miniature_schnauzer,newfoundland,norfolk_terrier,norwegian_elkhound,norwich_terrier,old_english_sheepdog,otterhound,papillon,pekinese,pembroke,pomeranian,pug,redbone,rhodesian_ridgeback,rottweiler,saint_bernard,saluki,samoyed,schipperke,scotch_terrier,scottish_deerhound,sealyham_terrier,shetland_sheepdog,shih-tzu,siberian_husky,silky_terrier,soft-coated_wheaten_terrier,staffordshire_bullterrier,standard_poodle,standard_schnauzer,sussex_spaniel,tibetan_mastiff,tibetan_terrier,toy_poodle,toy_terrier,vizsla,walker_hound,weimaraner,welsh_springer_spaniel,west_highland_white_terrier,whippet,wire-haired_fox_terrier,yorkshire_terrier", file=f)
     else:
         with open(csv_file, 'a') as f:
-            for idx, preds in enumerate(predictions):
-                print("%s,%s" % (image_ids[idx], ','.join(map(str, preds.tolist()))), file=f)
+            pred_str = np.array2string(prediction, precision=64, separator=',', max_line_width='inf', formatter={'float': lambda x: "%.17f" % x})[1:-1]
+            print("%s,%s" % (image_id, pred_str), file=f)
     return

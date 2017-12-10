@@ -277,10 +277,10 @@ def get_images(eval_data, data_dir, batch_size):
     image, label = read_image(filename_queue, eval_data=eval_data)
 
     if not eval_data:
-        if random.random() < 0.8:
+        if random.random() < 0.9:
             image = tf.random_crop(image, [CROP_SIZE, CROP_SIZE, 3])
             image = tf.image.random_flip_left_right(image)
-            image = tf.image.random_flip_up_down(image)
+            #image = tf.image.random_flip_up_down(image)
             if random.random() < 0.5:
                 tf.image.random_brightness(image, max_delta=63)
                 tf.image.random_contrast(image, lower=0.2, upper=1.8)
@@ -317,7 +317,7 @@ def get_images(eval_data, data_dir, batch_size):
     return images, tf.reshape(label_batch, [batch_size])
 
 
-def get_test_images(data_dir, batch_size):
+def get_test_image(data_dir):
     """Construct input for CIFAR evaluation using the Reader ops.
 
     Args:
@@ -338,6 +338,7 @@ def get_test_images(data_dir, batch_size):
 
     # Create a queue that produces the filenames to read.
     filename_queue = tf.train.string_input_producer(filenames,
+                                                    shuffle=False,
                                                     capacity=10357)
 
     # Read examples from files in the filename queue.
@@ -353,13 +354,13 @@ def get_test_images(data_dir, batch_size):
     min_queue_examples = int(num_examples_per_epoch *
                              min_fraction_of_examples_in_queue)
 
-    images, id_batch = tf.train.batch(
+    test_image, test_id = tf.train.batch(
         [image, image_id],
-        batch_size=batch_size,
+        batch_size=1,
         num_threads=16,
         capacity=10357)
 
-    return images, tf.reshape(id_batch, [batch_size])
+    return test_image, tf.reshape(test_id, [1])
 
 
 def get_label_mapping(data_dir=ARGS.data_dir):
@@ -383,7 +384,7 @@ def get_filenames(data_dir):
     random.seed(33)
     random.shuffle(filenames)
 
-    split_idx = int(0.8 * len(filenames))
+    split_idx = int(0.9 * len(filenames))
     train_filenames = filenames[:split_idx]
     test_filenames = filenames[split_idx:]
     return train_filenames, test_filenames
