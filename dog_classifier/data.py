@@ -20,6 +20,7 @@ from __future__ import division
 from __future__ import print_function
 
 import os
+import re
 import random
 import numpy as np
 import tensorflow as tf
@@ -238,9 +239,13 @@ def read_test_image(filename_queue):
 
 
 def get_label(filename):
-    file_id = os.path.splitext(os.path.basename(str(filename)))[0]
-    label_mapping = get_label_mapping()
-    return np.array([_breed_2_id(label_mapping[file_id])-1])
+    #file_id = os.path.splitext(os.path.basename(str(filename)))[0]
+    #label_mapping = get_label_mapping()
+    #return np.array([_breed_2_id(label_mapping[file_id])-1])
+    breed_name = os.path.basename(os.path.dirname(filename))
+    split_part = re.search('^n[0-9]{8}-', breed_name).group()
+    breed_name = breed_name.split(split_part)[-1].lower()
+    return np.array([_breed_2_id(breed_name)-1])
 
 
 def get_file_id(filename):
@@ -260,10 +265,10 @@ def get_images(eval_data, data_dir, batch_size):
         labels: Labels. 1D tensor of [batch_size] size.
     """
     if not eval_data:
-        filenames, _ = get_filenames(data_dir)
+        filenames = get_filenames(data_dir)
         num_examples_per_epoch = NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN
     else:
-        _, filenames = get_filenames(data_dir)
+        filenames = get_filenames(data_dir)
         num_examples_per_epoch = NUM_EXAMPLES_PER_EPOCH_FOR_EVAL
 
     for f in filenames:
@@ -277,7 +282,7 @@ def get_images(eval_data, data_dir, batch_size):
     image, label = read_image(filename_queue, eval_data=eval_data)
 
     if not eval_data:
-        if random.random() < 0.9:
+        if random.random() < 0.95:
             image = tf.random_crop(image, [CROP_SIZE, CROP_SIZE, 3])
             image = tf.image.random_flip_left_right(image)
             #image = tf.image.random_flip_up_down(image)
@@ -375,19 +380,25 @@ def get_label_mapping(data_dir=ARGS.data_dir):
 
 def get_filenames(data_dir):
     filenames = []
-    train_dir = os.path.join(data_dir, 'train')
-    for root, dirs, files in os.walk(train_dir):
+    image_dir = os.path.join(data_dir, 'Images')
+    #train_dir = os.path.join(data_dir, 'train')
+    #for root, dirs, files in os.walk(train_dir):
+    #    for f in files:
+    #        if f.endswith('.jpg'):
+    #            filenames.append(os.path.join(root, f))
+
+    #random.seed(33)
+    #random.shuffle(filenames)
+
+    #split_idx = int(0.9 * len(filenames))
+    #train_filenames = filenames[:split_idx]
+    #test_filenames = filenames[split_idx:]
+
+    for root, dirs, files in os.walk(image_dir):
         for f in files:
             if f.endswith('.jpg'):
                 filenames.append(os.path.join(root, f))
-
-    random.seed(33)
-    random.shuffle(filenames)
-
-    split_idx = int(0.9 * len(filenames))
-    train_filenames = filenames[:split_idx]
-    test_filenames = filenames[split_idx:]
-    return train_filenames, test_filenames
+    return filenames
 
 
 def get_test_filenames(data_dir):
