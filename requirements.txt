@@ -14,7 +14,7 @@ futures==3.2.0
 html5lib==0.999999999
 idna==2.6
 imagesize==0.7.1
-Jinja2==2.10
+Jinja2==2.11.3
 Markdown==2.6.9
 MarkupSafe==1.0
 matplotlib==2.1.0
