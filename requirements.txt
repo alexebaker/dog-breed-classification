@@ -25,7 +25,7 @@ olefile==0.44
 pbr==3.1.1
 Pillow==4.3.0
 protobuf==3.5.0.post1
-Pygments==2.2.0
+Pygments==2.7.4
 pyparsing==2.2.0
 python-dateutil==2.6.1
 pytz==2017.3
