@@ -43,6 +43,6 @@ subprocess32==3.2.7
 tensorflow==1.4.0
 tensorflow-tensorboard==0.4.0rc3
 typing==3.6.2
-urllib3==1.22
+urllib3==1.26.5
 webencodings==0.5.1
 Werkzeug==0.12.2
