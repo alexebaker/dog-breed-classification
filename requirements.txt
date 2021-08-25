@@ -40,7 +40,7 @@ snowballstemmer==1.2.1
 Sphinx==1.6.5
 sphinxcontrib-websupport==1.0.1
 subprocess32==3.2.7
-tensorflow==1.4.0
+tensorflow==2.5.1
 tensorflow-tensorboard==0.4.0rc3
 typing==3.6.2
 urllib3==1.22
